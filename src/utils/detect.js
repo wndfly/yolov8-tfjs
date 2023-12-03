@@ -3,6 +3,7 @@ import { renderBoxes } from "./renderBox";
 import labels from "./labels.json";
 
 const numClass = labels.length;
+const FPSUpdateMilliseconds = 1000;
 
 /**
  * Preprocess image / frame before forwarded into the model
@@ -97,7 +98,15 @@ export const detect = async (source, model, canvasRef, callback = () => {}) => {
  * @param {tf.GraphModel} model loaded YOLOv8 tensorflow.js model
  * @param {HTMLCanvasElement} canvasRef canvas reference
  */
-export const detectVideo = (vidSource, model, canvasRef) => {
+export const detectVideo = (vidSource, model, canvasRef, fpsRef) => {
+  let startInferenceTime = 0;
+  let endInferenceTime = 0;
+  let inferenceTimeSum = 0;
+  let numInferences = 0;
+  let lastFpsRefresh = 0;
+
+  fpsRef.innerHTML = 0;
+
   /**
    * Function to detect every frame from video
    */
@@ -108,9 +117,25 @@ export const detectVideo = (vidSource, model, canvasRef) => {
       return; // handle if source is closed
     }
 
-    detect(vidSource, model, canvasRef, () => {
+    startInferenceTime = (performance || Date).now();
+
+    await detect(vidSource, model, canvasRef, () => {
       requestAnimationFrame(detectFrame); // get another frame
     });
+
+    endInferenceTime = (performance || Date).now();
+    inferenceTimeSum += endInferenceTime - startInferenceTime;
+    numInferences++;
+
+    console.log('inferenceTime', endInferenceTime - startInferenceTime);
+
+    if (endInferenceTime - lastFpsRefresh >= FPSUpdateMilliseconds) {
+      const averageInferenceTime = inferenceTimeSum / numInferences;
+      inferenceTimeSum = 0;
+      numInferences = 0;
+      lastFpsRefresh = endInferenceTime;
+      fpsRef.innerHTML = parseInt(1000.0 / averageInferenceTime);
+    }
   };
 
   detectFrame(); // initialize to detect every frame

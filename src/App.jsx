@@ -7,25 +7,28 @@ import { detect, detectVideo } from "./utils/detect";
 import "./style/App.css";
 
 const App = () => {
-  const [loading, setLoading] = useState({ loading: true, progress: 0 }); // loading state
+  const [loading, setLoading] = useState({ loading: true, progress: 0 }); // loading state  
+  const [modelName, setModelName] = useState('yolov8n'); // model configs
   const [model, setModel] = useState({
     net: null,
     inputShape: [1, 0, 0, 3],
   }); // init model & input shape
 
   // references
+  const fpsRef = useRef(null);
   const imageRef = useRef(null);
   const cameraRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
-  // model configs
-  const modelName = "yolov8n";
-
   useEffect(() => {
     tf.ready().then(async () => {
+      const [baseURL, searchParams] = window.location.href.split('?');
+      const modelName_ = (new URLSearchParams(searchParams)).get('model') || modelName
+      setModelName(modelName_);
+      
       const yolov8 = await tf.loadGraphModel(
-        `${window.location.href}/${modelName}_web_model/model.json`,
+        `${baseURL.replace(/\/$/, '')}/${modelName_}_web_model/model.json`,
         {
           onProgress: (fractions) => {
             setLoading({ loading: true, progress: fractions }); // set loading fractions
@@ -56,7 +59,7 @@ const App = () => {
           YOLOv8 live detection application on browser powered by <code>tensorflow.js</code>
         </p>
         <p>
-          Serving : <code className="code">{modelName}</code>
+          Serving : <code className="code">{modelName}</code> FPS : <code className="code" ref={fpsRef}>0</code>
         </p>
       </div>
 
@@ -70,13 +73,13 @@ const App = () => {
           autoPlay
           muted
           ref={cameraRef}
-          onPlay={() => detectVideo(cameraRef.current, model, canvasRef.current)}
+          onPlay={() => detectVideo(cameraRef.current, model, canvasRef.current, fpsRef.current)}
         />
         <video
           autoPlay
           muted
           ref={videoRef}
-          onPlay={() => detectVideo(videoRef.current, model, canvasRef.current)}
+          onPlay={() => detectVideo(videoRef.current, model, canvasRef.current, fpsRef.current)}
         />
         <canvas width={model.inputShape[1]} height={model.inputShape[2]} ref={canvasRef} />
       </div>
